@@ -1,4 +1,6 @@
 import streamlit as st
+import streamlit.components.v1 as components
+import base64
 from reportlab.pdfgen import canvas
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
@@ -8,11 +10,6 @@ import os
 from datetime import datetime, date
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-
-# DEBUG — ลบออกหลังแก้เสร็จ
-import streamlit as st
-st.write("BASE_DIR:", BASE_DIR)
-st.write("Files in BASE_DIR:", os.listdir(BASE_DIR))
 
 # --- 1. ตั้งค่าหน้าจอ App ---
 st.set_page_config(page_title="Game Receipt Pro", layout="wide")
@@ -212,9 +209,9 @@ with col_in:
     curr_info = currency_config[selected_curr]
 
     # วันที่ + เวลา
-    c_dt1, c_dt2 = st.columns(2)
-    input_date = c_dt1.date_input("วันที่:", datetime.now())
-    input_time = c_dt2.text_input("เวลา:", datetime.now().strftime("%H:%M"))
+    col_dt1, col_dt2 = st.columns(2)
+    input_date = col_dt1.date_input("วันที่:", datetime.now())
+    input_time = col_dt2.text_input("เวลา:", datetime.now().strftime("%H:%M"))
 
     # Preview ปฏิทินญี่ปุ่น
     era_preview = to_japanese_date(input_date)
@@ -265,12 +262,12 @@ with col_in:
 
     with st.form("add_item", clear_on_submit=True):
         item_name = st.text_input("ชื่อสินค้า (รองรับภาษาญี่ปุ่น/จีน)")
-        c1, c2, c3 = st.columns(3)
-        qty  = c1.number_input("จำนวน", min_value=1, value=1)
-        price = c2.number_input("ราคา", min_value=0.0)
-        disc  = c3.number_input("ส่วนลด", min_value=0.0)
+        col_qty, col_price, col_disc = st.columns(3)
+        qty  = col_qty.number_input("จำนวน", min_value=1, value=1)
+        price = col_price.number_input("ราคา", min_value=0.0)
+        item_disc = col_disc.number_input("ส่วนลด", min_value=0.0)
         if st.form_submit_button("➕ เพิ่มรายการ"):
-            st.session_state.basket.append((item_name, qty, price, disc))
+            st.session_state.basket.append((item_name, qty, price, item_disc))
             st.rerun()
 
     if st.button("🗑️ ล้างข้อมูลทั้งหมด"):
@@ -388,9 +385,9 @@ with col_pre:
                 unsafe_allow_html=True
             )
 
-    # ปุ่ม PDF
+    # ปุ่ม PDF + Print
     if st.session_state.basket:
-        if st.button("🚀 บันทึกเป็น PDF"):
+        if st.button("🚀 สร้างใบเสร็จ"):
             path = create_pdf(
                 comp_info=comp_info,
                 address_lines=address_lines,
@@ -402,8 +399,58 @@ with col_pre:
                 rakuten_pts=rakuten_pts,
             )
             with open(path, "rb") as f:
+                pdf_bytes = f.read()
+
+            b64 = base64.b64encode(pdf_bytes).decode()
+            file_name = f"receipt_{selected_comp_name.replace(' ', '')}.pdf"
+
+            # แสดงปุ่ม Download และ Print แบบเคียงกัน
+            btn_col1, btn_col2 = st.columns(2)
+
+            with btn_col1:
                 st.download_button(
-                    "💾 Download Receipt",
-                    f,
-                    file_name=f"receipt_{selected_comp_name.replace(' ', '')}.pdf"
+                    "💾 Download PDF",
+                    pdf_bytes,
+                    file_name=file_name,
+                    mime="application/pdf",
+                    use_container_width=True,
                 )
+
+            with btn_col2:
+                # เปิด PDF ใน tab ใหม่แล้วสั่ง print อัตโนมัติ
+                print_html = f"""
+                    <a href="data:application/pdf;base64,{b64}"
+                       download="{file_name}"
+                       id="print-link" style="display:none;">dl</a>
+                    <button onclick="printPDF()" style="
+                        width:100%;
+                        padding: 0.45rem 1rem;
+                        background-color: #ff4b4b;
+                        color: white;
+                        border: none;
+                        border-radius: 6px;
+                        font-size: 1rem;
+                        cursor: pointer;
+                        font-weight: 600;
+                    ">🖨️ Print ใบเสร็จ</button>
+                    <script>
+                    function printPDF() {{
+                        var b64 = "{b64}";
+                        var byteChars = atob(b64);
+                        var byteNums = new Array(byteChars.length);
+                        for (var i = 0; i < byteChars.length; i++) {{
+                            byteNums[i] = byteChars.charCodeAt(i);
+                        }}
+                        var byteArr = new Uint8Array(byteNums);
+                        var blob = new Blob([byteArr], {{type: "application/pdf"}});
+                        var url = URL.createObjectURL(blob);
+                        var win = window.open(url, "_blank");
+                        win.onload = function() {{
+                            setTimeout(function() {{
+                                win.print();
+                            }}, 500);
+                        }};
+                    }}
+                    </script>
+                """
+                components.html(print_html, height=50)
