@@ -9,6 +9,11 @@ from datetime import datetime, date
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
+# DEBUG — ลบออกหลังแก้เสร็จ
+import streamlit as st
+st.write("BASE_DIR:", BASE_DIR)
+st.write("Files in BASE_DIR:", os.listdir(BASE_DIR))
+
 # --- 1. ตั้งค่าหน้าจอ App ---
 st.set_page_config(page_title="Game Receipt Pro", layout="wide")
 
