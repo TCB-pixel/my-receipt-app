@@ -44,11 +44,11 @@ else:
 company_config = {
     "Bandai Namco": {
         "full_name": "BANDAI NAMCO ENTERTAINMENT CO., LTD.",
-        "logo_file": "logo Bandai"
+        "logo_file": "logo_Bandai"
     },
     "Konami": {
         "full_name": "KONAMI DIGITAL ENTERTAINMENT CO., LTD.",
-        "logo_file": "logo konami"
+        "logo_file": "logo_konami"
     }
 }
 
@@ -60,24 +60,12 @@ currency_config = {
 }
 
 # --- 4. ฟังก์ชันแปลงปี ค.ศ. → ปฏิทินญี่ปุ่น (元号) ---
-def to_japanese_era(d: date) -> str:
-    eras = [
-        (date(2019, 5, 1),  "令和", 2019),
-        (date(1989, 1, 8),  "平成", 1989),
-        (date(1926, 12, 25),"昭和", 1926),
-        (date(1912, 7, 30), "大正", 1912),
-        (date(1868, 1, 25), "明治", 1868),
-    ]
-    for start, kanji, base_year in eras:
-        if d >= start:
-            era_year = d.year - base_year + 1
-            year_str = "元年" if era_year == 1 else f"{era_year}年"
-            return f"{kanji}{year_str}{d.month}月{d.day}日"
-    return d.strftime("%Y年%m月%d日")
-
-def to_japanese_era_full(d: date) -> str:
-    """令和7年4月27日（2025年） — แสดงทั้ง 元号 + ค.ศ."""
-    return f"{to_japanese_era(d)}（{d.year}年）"
+def to_japanese_date(d: date, time_str: str = "") -> str:
+    """แปลงเป็นรูปแบบ: 2026年 4月 27日(月)14:20"""
+    weekdays = ["月", "火", "水", "木", "金", "土", "日"]
+    dow = weekdays[d.weekday()]
+    base = f"{d.year}年 {d.month}月 {d.day}日({dow})"
+    return f"{base}{time_str}" if time_str else base
 
 # --- 5. ฟังก์ชันสร้าง PDF ---
 def create_pdf(comp_info, address_lines, receipt_date, basket, curr_info,
@@ -137,9 +125,9 @@ def create_pdf(comp_info, address_lines, receipt_date, basket, curr_info,
     curr_y -= 6 * mm
 
     # วันที่ — ปฏิทินญี่ปุ่น + ค.ศ.
-    era_str = to_japanese_era_full(receipt_date)
+    date_str = to_japanese_date(receipt_date, time_str)
     c.setFont(FONT_NAME, 8)
-    c.drawCentredString(width / 2, curr_y, f"{era_str}　{time_str}")
+    c.drawCentredString(width / 2, curr_y, date_str)
     curr_y -= 4 * mm
     c.line(5 * mm, curr_y, width - 5 * mm, curr_y)
 
@@ -229,8 +217,8 @@ with col_in:
     input_time = c_dt2.text_input("เวลา:", datetime.now().strftime("%H:%M"))
 
     # Preview ปฏิทินญี่ปุ่น
-    era_preview = to_japanese_era_full(input_date)
-    st.caption(f"📅 ปฏิทินญี่ปุ่น: **{era_preview}**")
+    era_preview = to_japanese_date(input_date)
+    st.caption(f"📅 วันที่ญี่ปุ่น: **{era_preview}**")
 
     st.divider()
 
@@ -331,7 +319,7 @@ with col_pre:
         st.markdown(
             f"<p style='text-align:center;font-size:0.9em;margin:6px 0 2px 0;'>TAX INVOICE / RECEIPT</p>"
             f"<p style='text-align:center;font-size:0.8em;color:gray;margin-bottom:8px;'>"
-            f"📅 {era_preview} &nbsp; {input_time}</p>",
+            f"{to_japanese_date(input_date, input_time)}</p>",
             unsafe_allow_html=True
         )
         st.write("---")
