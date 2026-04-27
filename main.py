@@ -7,6 +7,8 @@ from reportlab.lib.utils import simpleSplit, ImageReader
 import os
 from datetime import datetime, date
 
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
 # --- 1. ตั้งค่าหน้าจอ App ---
 st.set_page_config(page_title="Game Receipt Pro", layout="wide")
 
@@ -27,7 +29,7 @@ st.title("🖨️ เครื่องสร้างใบเสร็จ (Off
 
 # --- 2. ลงทะเบียน Font ---
 FONT_NAME = "GlobalFont"
-font_path = "NotoSansSC-VariableFont_wght.ttf"
+font_path = os.path.join(BASE_DIR, "NotoSansSC-VariableFont_wght.ttf")
 if os.path.exists(font_path):
     pdfmetrics.registerFont(TTFont(FONT_NAME, font_path))
 else:
@@ -37,11 +39,11 @@ else:
 company_config = {
     "Bandai Namco": {
         "full_name": "BANDAI NAMCO ENTERTAINMENT CO., LTD.",
-        "logo_file": "logo_Bandai"
+        "logo_file": os.path.join(BASE_DIR, "logo_Bandai")
     },
     "Konami": {
         "full_name": "KONAMI DIGITAL ENTERTAINMENT CO., LTD.",
-        "logo_file": "logo_konami"
+        "logo_file": os.path.join(BASE_DIR, "logo_konami")
     }
 }
 
