@@ -44,11 +44,11 @@ else:
 company_config = {
     "Bandai Namco": {
         "full_name": "BANDAI NAMCO ENTERTAINMENT CO., LTD.",
-        "logo_file": "logo_Bandai"
+        "logo_file": "logo Bandai"
     },
     "Konami": {
         "full_name": "KONAMI DIGITAL ENTERTAINMENT CO., LTD.",
-        "logo_file": "logo_konami"
+        "logo_file": "logo konami"
     }
 }
 
