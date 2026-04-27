@@ -3,187 +3,170 @@ from reportlab.pdfgen import canvas
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.lib.units import mm
-from reportlab.lib.utils import ImageReader
+from reportlab.lib.utils import simpleSplit, ImageReader
 import os
-import pandas as pd
-from datetime import datetime
-import barcode
-from barcode.writer import ImageWriter
-import qrcode
-from io import BytesIO
 
-# --- 1. ตั้งค่าหน้าจอ ---
-st.set_page_config(page_title="Professional Receipt Pro", layout="wide")
+# --- ตั้งค่าหน้าจอ App ---
+st.set_page_config(page_title="Bandai Namco Receipt Pro", layout="wide")
+st.title("🖨️ เครื่องสร้างใบเสร็จ Pro (Full Version)")
 
-# --- 2. ลงทะเบียน Font ---
+# --- ลงทะเบียน Font ---
 FONT_NAME = "GlobalFont"
 font_path = "NotoSansSC-VariableFont_wght.ttf" 
+
 if os.path.exists(font_path):
     pdfmetrics.registerFont(TTFont(FONT_NAME, font_path))
 else:
-    FONT_NAME = "Helvetica"
+    st.error(f"❌ ไม่พบไฟล์ฟอนต์ {font_path}")
 
-# --- 3. ฟังก์ชันหาธาตุประจำวัน ---
-def get_daily_element(date_obj, currency):
-    elements_lang = {
-        "JPY (¥)": {0: "地", 1: "風", 2: "水", 3: "火", 4: "混合", 5: "烈火", 6: "金"},
-        "CNY (¥)": {0: "土", 1: "风", 2: "水", 3: "火", 4: "混合", 5: "烈火", 6: "金"}
-    }
-    el = elements_lang.get(currency, {}).get(date_obj.weekday(), "")
-    return f"({el}元素)" if el else ""
-
-# --- 4. ข้อมูลบริษัท ---
-company_config = {
-    "Bandai Namco": {
-        "full_name": "BANDAI NAMCO ENTERTAINMENT CO., LTD.",
-        "address": "5-37-8 Shiba, Minato-ku, Tokyo, Japan",
-        "tel": "03-6744-4000",
-        "tax_id": "T5010401136065"
-    },
-    "Konami": {
-        "full_name": "KONAMI DIGITAL ENTERTAINMENT CO., LTD.",
-        "address": "1-11-1 Ginza, Chuo-ku, Tokyo, Japan",
-        "tel": "03-5771-0511",
-        "tax_id": "T7010401060341"
-    }
-}
-
+# ข้อมูลสกุลเงินและคำศัพท์ส่วนลด
 currency_config = {
-    "JPY (¥)": {"symbol": "¥", "disc_text": "割引", "date_fmt": "%Y年%m月%d日"},
-    "THB (฿)": {"symbol": "฿", "disc_text": "ส่วนลด", "date_fmt": "%d/%m/%Y"},
-    "CNY (¥)": {"symbol": "¥", "disc_text": "折扣", "date_fmt": "%Y年%m月%d日"}
+    "JPY (¥)": {"symbol": "¥", "disc_text": "割引"},
+    "THB (฿)": {"symbol": "฿", "disc_text": "ส่วนลด"},
+    "CNY (¥)": {"symbol": "¥", "disc_text": "折扣"},
+    "HKD ($)": {"symbol": "$", "disc_text": "Discount"}
 }
 
-# --- 5. ฟังก์ชันสร้าง PDF (แก้ไขส่วน Image Error) ---
-def create_full_pdf(comp_info, basket, curr_info, date_str, time_str, element_text):
-    buffer = BytesIO()
-    w = 80 * mm
-    h = (len(basket) * 25 + 180) * mm
-    c = canvas.Canvas(buffer, pagesize=(w, h))
-    curr_y = h - 15*mm
+# --- ฟังก์ชันสร้าง PDF ---
+def create_pdf(shop_name, basket, curr_info):
+    file_name = "receipt.pdf"
+    symbol = curr_info["symbol"]
+    disc_label = curr_info["disc_text"]
+    
+    width = 80 * mm
+    # คำนวณความสูงกระดาษตามจำนวนสินค้า
+    height = (len(basket) * 30 + 120) * mm 
+    c = canvas.Canvas(file_name, pagesize=(width, height))
+    curr_y = height - 10*mm
 
-    # Company Header
-    c.setFont(FONT_NAME, 10); c.drawCentredString(w/2, curr_y, comp_info["full_name"]); curr_y -= 6*mm
-    c.setFont(FONT_NAME, 7); c.drawCentredString(w/2, curr_y, comp_info["address"]); curr_y -= 4*mm
-    c.drawCentredString(w/2, curr_y, f"TEL: {comp_info['tel']}  TAX ID: {comp_info['tax_id']}"); curr_y -= 5*mm
-    c.drawCentredString(w/2, curr_y, f"{date_str} {time_str} {element_text}"); curr_y -= 8*mm
+    # 1. จัดการ Logo (คำนวณจากขนาดจริง)
+    logo_file = None
+    for f in ["logo", "logo.png", "logo.jpg"]:
+        if os.path.exists(f):
+            logo_file = f
+            break
 
-    # Barcode Generation
-    try:
-        bc_class = barcode.get_barcode_class('code128')
-        bc_obj = bc_class("SSP2TJJ1PQB4", writer=ImageWriter())
-        bc_img = bc_obj.render() # เปลี่ยนเป็น PIL Image
-        c.drawImage(ImageReader(bc_img), (w-55*mm)/2, curr_y-12*mm, width=55*mm, height=12*mm)
-        curr_y -= 15*mm
-    except: pass
-
-    c.drawCentredString(w/2, curr_y, "------------------------------------------"); curr_y -= 8*mm
-
-    # Items & Calculations
-    grand_total = 0
-    c.setFont(FONT_NAME, 8)
-    for name, qty, price, disc in basket:
-        sub = qty * price
-        grand_total += (sub - disc)
-        c.drawString(7*mm, curr_y, name)
-        c.drawRightString(w-7*mm, curr_y, f"{sub:,.0f}")
-        curr_y -= 5*mm
-        if disc > 0:
-            c.setFont(FONT_NAME, 7)
-            c.drawString(10*mm, curr_y, f"({curr_info['disc_text']})")
-            c.drawRightString(w-7*mm, curr_y, f"-{disc:,.0f}")
+    if logo_file:
+        try:
+            img = ImageReader(logo_file)
+            img_w, img_h = img.getSize()
+            display_w = 45 * mm  # กำหนดความกว้างโลโก้ในใบเสร็จ
+            display_h = (display_w / img_w) * img_h # รักษาสัดส่วนภาพ
+            
+            center_x = (width - display_w) / 2
+            c.drawImage(logo_file, center_x, curr_y - display_h, width=display_w, height=display_h, mask='auto')
+            curr_y -= (display_h + 10*mm)
+        except:
             curr_y -= 5*mm
-        c.setFont(FONT_NAME, 8); curr_y -= 3*mm
 
-    # Total Section
-    curr_y -= 2*mm; c.line(5*mm, curr_y, w-5*mm, curr_y); curr_y -= 8*mm
-    c.setFont(FONT_NAME, 12); c.drawString(7*mm, curr_y, "TOTAL")
-    c.drawRightString(w-7*mm, curr_y, f"{curr_info['symbol']}{grand_total:,.0f}")
-
-    # QR Code Generation (แก้ไข Error ในรูปภาพ)
-    try:
-        curr_y -= 30*mm
-        qr = qrcode.QRCode(box_size=10, border=1)
-        qr.add_data("https://www.google.com/maps")
-        qr.make(fit=True)
-        qr_img = qr.make_image(fill_color="black", back_color="white")
-        c.drawImage(ImageReader(qr_img.get_image()), 8*mm, curr_y, width=20*mm, height=20*mm)
+    # 2. หัวใบเสร็จ
+    c.setFont(FONT_NAME, 14)
+    c.drawCentredString(width/2, curr_y, shop_name)
+    curr_y -= 10*mm
+    c.setFont(FONT_NAME, 10)
+    c.drawCentredString(width/2, curr_y, "TAX INVOICE / RECEIPT")
+    curr_y -= 5*mm
+    c.line(5*mm, curr_y, width-5*mm, curr_y)
+    
+    # 3. รายการสินค้า
+    curr_y -= 10*mm
+    grand_total = 0
+    for name, qty, price, discount in basket:
+        subtotal = qty * price
+        line_total = subtotal - discount
+        grand_total += line_total
         
-        c.setFont(FONT_NAME, 7)
-        c.drawString(30*mm, curr_y+12*mm, "★★★★★")
-        c.drawString(30*mm, curr_y+8*mm, "Thank you for your visit!")
-    except: pass
+        c.setFont(FONT_NAME, 10)
+        # ตัดคำถ้าชื่อสินค้ายาวเกินไป
+        lines = simpleSplit(name, FONT_NAME, 10, 65*mm)
+        for line in lines:
+            c.drawString(7*mm, curr_y, line)
+            curr_y -= 5*mm
+        
+        c.setFont(FONT_NAME, 9)
+        c.drawString(10*mm, curr_y, f"{qty} x {symbol}{price:,.2f}")
+        c.drawRightString(width-7*mm, curr_y, f"{symbol}{subtotal:,.2f}")
+        
+        if discount > 0:
+            curr_y -= 4*mm
+            c.setFont(FONT_NAME, 8)
+            c.drawString(12*mm, curr_y, f"({disc_label})")
+            c.drawRightString(width-7*mm, curr_y, f"-{symbol}{discount:,.2f}")
+        curr_y -= 10*mm
 
-    c.showPage(); c.save()
-    pdf_bytes = buffer.getvalue(); buffer.close()
-    return pdf_bytes
+    # 4. สรุปยอดเงิน
+    c.line(5*mm, curr_y, width-5*mm, curr_y)
+    curr_y -= 10*mm
+    c.setFont(FONT_NAME, 14)
+    c.drawString(7*mm, curr_y, "TOTAL")
+    c.drawRightString(width-7*mm, curr_y, f"{symbol}{grand_total:,.2f}")
+    
+    curr_y -= 15*mm
+    c.setFont(FONT_NAME, 9)
+    c.drawCentredString(width/2, curr_y, "Thank you / ありがとうございました")
+    
+    c.save()
+    return file_name
 
-# --- 6. UI Logic ---
-if 'basket' not in st.session_state: st.session_state.basket = []
-if 'history' not in st.session_state: st.session_state.history = []
+# --- ส่วนหน้าจอ UI ---
+col_input, col_preview = st.columns([1, 1])
 
-st.title("🖨️ Professional Receipt System")
-col_in, col_pre = st.columns([1, 1])
+with col_input:
+    st.subheader("📝 ข้อมูลใบเสร็จ")
+    shop = st.text_input("ชื่อร้านค้า", "BANDAI NAMCO ENTERTAINMENT")
+    selected_curr = st.selectbox("เลือกสกุลเงิน", list(currency_config.keys()))
+    curr_info = currency_config[selected_curr]
 
-with col_in:
-    st.subheader("📝 บันทึกรายการ")
-    sel_comp = st.radio("เลือกค่าย:", list(company_config.keys()), horizontal=True)
-    sel_curr = st.selectbox("สกุลเงิน:", list(currency_config.keys()))
-    in_date = st.date_input("วันที่:", datetime.now())
-    in_time = st.text_input("เวลา:", datetime.now().strftime("%H:%M"))
+    if 'basket' not in st.session_state:
+        st.session_state.basket = []
 
     with st.form("add_item", clear_on_submit=True):
         name = st.text_input("ชื่อสินค้า")
-        q, p, d = st.columns(3)
-        qty = q.number_input("จำนวน", min_value=1, value=1)
-        prc = p.number_input("ราคาต่อหน่วย", min_value=0.0)
-        dsc = d.number_input("ส่วนลด", min_value=0.0)
-        if st.form_submit_button("➕ เพิ่มลงตะกร้า"):
-            st.session_state.basket.append((name, qty, prc, dsc))
+        c1, c2, c3 = st.columns(3)
+        qty = c1.number_input("จำนวน", min_value=1, value=1)
+        price = c2.number_input("ราคาต่อชิ้น", min_value=0.0)
+        disc = c3.number_input("ส่วนลดรวม", min_value=0.0)
+        if st.form_submit_button("➕ เพิ่มรายการ"):
+            st.session_state.basket.append((name, qty, price, disc))
             st.rerun()
-    
+
     if st.button("🗑️ ล้างตะกร้า"):
         st.session_state.basket = []
         st.rerun()
 
-with col_pre:
-    st.subheader("👀 ตรวจสอบรายการ & พิมพ์")
-    if st.session_state.basket:
-        # แสดงตารางรายการให้ผู้ใช้ดูก่อน
-        df = pd.DataFrame(st.session_state.basket, columns=["สินค้า", "จำนวน", "ราคา", "ส่วนลด"])
-        st.table(df)
+with col_preview:
+    st.subheader("👀 Preview")
+    with st.container(border=True):
+        # จัดการ Logo ใน Preview ให้กึ่งกลาง
+        logo_path = None
+        for f in ["logo.png", "logo", "logo.jpg"]:
+            if os.path.exists(f):
+                logo_path = f
+                break
         
-        curr_info = currency_config[sel_curr]
-        element = get_daily_element(in_date, sel_curr)
+        if logo_path:
+            p_l, p_m, p_r = st.columns([1, 2, 1])
+            with p_m:
+                st.image(logo_path, use_container_width=True)
         
-        # สร้าง PDF
-        pdf_data = create_full_pdf(company_config[sel_comp], st.session_state.basket, curr_info, in_date.strftime(curr_info["date_fmt"]), in_time, element)
+        st.markdown(f"<h3 style='text-align: center; margin:0;'>{shop}</h3>", unsafe_allow_html=True)
+        st.markdown("<p style='text-align: center; font-size: 0.8em;'>TAX INVOICE / RECEIPT</p>", unsafe_allow_html=True)
+        st.write("---")
         
-        # ปุ่มดาวน์โหลด
-        st.download_button(
-            label="🎯 ดาวน์โหลดใบเสร็จ (PDF)",
-            data=pdf_data,
-            file_name=f"receipt_{sel_comp}.pdf",
-            mime="application/pdf",
-            use_container_width=True
-        )
+        total_val = 0
+        for n, q, p, d in st.session_state.basket:
+            sub = q * p
+            total_val += (sub - d)
+            st.write(f"**{n}**")
+            st.markdown(f"<div style='display: flex; justify-content: space-between;'><span>{q} x {p:,.2f}</span> <span>{curr_info['symbol']}{sub:,.2f}</span></div>", unsafe_allow_html=True)
+            if d > 0:
+                st.markdown(f"<div style='display: flex; justify-content: space-between; color: red; font-size: 0.9em;'><span>({curr_info['disc_text']})</span> <span>-{curr_info['symbol']}{d:,.2f}</span></div>", unsafe_allow_html=True)
         
-        if st.button("💾 บันทึกลงประวัติ"):
-            total = sum((q*p)-d for n,q,p,d in st.session_state.basket)
-            st.session_state.history.append({
-                "วันที่": in_date.strftime("%Y-%m-%d"), 
-                "บริษัท": sel_comp, 
-                "ยอดรวม": f"{curr_info['symbol']}{total:,.0f}"
-            })
-            st.success("บันทึกประวัติเรียบร้อย!")
-    else:
-        st.info("กรุณาเพิ่มสินค้า")
+        st.write("---")
+        st.markdown(f"<div style='display: flex; justify-content: space-between; font-size: 1.5em;'><b>TOTAL</b> <b>{curr_info['symbol']}{total_val:,.2f}</b></div>", unsafe_allow_html=True)
 
-# --- 7. History ---
-st.divider()
-st.subheader("📜 History")
-if st.session_state.history:
-    st.dataframe(pd.DataFrame(st.session_state.history), use_container_width=True)
-    if st.button("❌ ล้างประวัติ"):
-        st.session_state.history = []
-        st.rerun()
+    if st.session_state.basket:
+        if st.button("🚀 ออกใบเสร็จ PDF"):
+            path = create_pdf(shop, st.session_state.basket, curr_info)
+            with open(path, "rb") as f:
+                st.download_button("💾 Download PDF", f, file_name="receipt.pdf")
