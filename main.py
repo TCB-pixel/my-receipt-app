@@ -31,7 +31,7 @@ def get_daily_element(date_obj, currency):
     }
     return elements_lang.get(currency, {}).get(date_obj.weekday(), "")
 
-# --- 4. ข้อมูลบริษัทแบบละเอียด ---
+# --- 4. ข้อมูลบริษัท ---
 company_config = {
     "Bandai Namco": {
         "full_name": "BANDAI NAMCO ENTERTAINMENT CO., LTD.",
@@ -56,34 +56,29 @@ currency_config = {
 }
 
 # --- 5. ฟังก์ชันสร้าง PDF ---
-def create_pdf(comp_info, basket, curr_info, date_str, time_str, element, curr_name):
+def create_pdf(comp_info, basket, curr_info, date_str, time_str, element):
     file_name = "receipt_temp.pdf"
     width = 80 * mm
-    dynamic_h = (len(basket) * 20) + 160
+    dynamic_h = (len(basket) * 22) + 165
     height = dynamic_h * mm 
     c = canvas.Canvas(file_name, pagesize=(width, height))
     curr_y = height - 10*mm
 
     # Logo
-    logo_path = comp_info["logo_file"]
-    if os.path.exists(logo_path):
+    if os.path.exists(comp_info["logo_file"]):
         try:
-            img = ImageReader(logo_path)
-            img_w, img_h = img.getSize()
-            display_w = 30 * mm
-            display_h = (display_w / img_w) * img_h
-            c.drawImage(logo_path, (width - display_w) / 2, curr_y - display_h, width=display_w, height=display_h, mask='auto')
-            curr_y -= (display_h + 8*mm)
+            c.drawImage(comp_info["logo_file"], (width-30*mm)/2, curr_y-15*mm, width=30*mm, preserveAspectRatio=True, mask='auto')
+            curr_y -= 18*mm
         except: curr_y -= 5*mm
 
-    # Header แบบละเอียด
+    # Header
     c.setFont(FONT_NAME, 10); c.drawCentredString(width/2, curr_y, comp_info["full_name"]); curr_y -= 6*mm
     c.setFont(FONT_NAME, 7)
     c.drawCentredString(width/2, curr_y, comp_info["address"]); curr_y -= 4*mm
     c.drawCentredString(width/2, curr_y, f"TEL: {comp_info['tel']}"); curr_y -= 4*mm
     c.drawCentredString(width/2, curr_y, f"TAX ID: {comp_info['tax_id']}"); curr_y -= 4*mm
     
-    display_date = f"Date: {date_str}  Time: {time_str}"
+    display_date = f"{date_str} {time_str}"
     if element: display_date += f" ({element})"
     c.drawCentredString(width/2, curr_y, display_date); curr_y -= 5*mm
 
@@ -96,39 +91,35 @@ def create_pdf(comp_info, basket, curr_info, date_str, time_str, element, curr_n
         curr_y -= 15*mm
     except: pass
 
-    c.line(5*mm, curr_y, width-5*mm, curr_y); curr_y -= 8*mm
+    c.drawCentredString(width/2, curr_y, "------------------------------------------"); curr_y -= 8*mm
     
     # Items
     grand_total = 0
+    c.setFont(FONT_NAME, 8)
     for name, qty, price, discount in basket:
         subtotal = qty * price
         line_total = subtotal - discount
         grand_total += line_total
         
-        c.setFont(FONT_NAME, 9)
-        lines = simpleSplit(name, FONT_NAME, 9, 60*mm)
-        for line in lines:
-            c.drawString(7*mm, curr_y, line); curr_y -= 5*mm
-        
-        c.setFont(FONT_NAME, 8)
-        c.drawString(10*mm, curr_y, f"{qty} x {curr_info['symbol']}{price:,.0f}")
-        c.drawRightString(width-7*mm, curr_y, f"{curr_info['symbol']}{subtotal:,.0f}")
+        c.drawString(7*mm, curr_y, name)
+        c.drawRightString(width-7*mm, curr_y, f"{subtotal:,.0f}")
+        curr_y -= 5*mm
+        c.setFont(FONT_NAME, 7)
+        c.drawString(7*mm, curr_y, f"{qty} 点 x {price:,.0f}")
         
         if discount > 0:
             curr_y -= 4*mm
-            c.setFont(FONT_NAME, 7)
-            c.drawString(12*mm, curr_y, f"({curr_info['disc_text']})")
-            c.drawRightString(width-7*mm, curr_y, f"-{curr_info['symbol']}{discount:,.0f}")
-        curr_y -= 8*mm
+            c.drawString(10*mm, curr_y, f"({curr_info['disc_text']})")
+            c.drawRightString(width-7*mm, curr_y, f"-{discount:,.0f}")
+        curr_y -= 7*mm; c.setFont(FONT_NAME, 8)
 
     # Footer
-    curr_y -= 2*mm; c.line(5*mm, curr_y, width-5*mm, curr_y); curr_y -= 8*mm
-    c.setFont(FONT_NAME, 12)
-    c.drawString(7*mm, curr_y, "TOTAL")
+    curr_y -= 2*mm; c.line(5*mm, curr_y, width-5*mm, curr_y); curr_y -= 7*mm
+    c.setFont(FONT_NAME, 12); c.drawString(7*mm, curr_y, "合計 (TOTAL)")
     c.drawRightString(width-7*mm, curr_y, f"{curr_info['symbol']}{grand_total:,.0f}")
     
-    # QR Code & Review
-    curr_y -= 25*mm
+    # QR
+    curr_y -= 28*mm
     qr = qrcode.make("https://maps.google.com"); qr.save("temp_qr.png")
     c.drawImage("temp_qr.png", 8*mm, curr_y, width=18*mm, height=18*mm)
     c.setFont(FONT_NAME, 7)
@@ -139,9 +130,9 @@ def create_pdf(comp_info, basket, curr_info, date_str, time_str, element, curr_n
     with open(file_name, "rb") as f:
         return base64.b64encode(f.read()).decode('utf-8'), grand_total
 
-# --- 6. จัดการระบบเก็บข้อมูล (History) ---
-if 'history' not in st.session_state:
-    st.session_state.history = []
+# --- 6. จัดการระบบ Session ---
+if 'basket' not in st.session_state: st.session_state.basket = []
+if 'history' not in st.session_state: st.session_state.history = []
 
 # --- 7. ส่วน UI ---
 col_in, col_pre = st.columns([1, 1])
@@ -157,12 +148,8 @@ with col_in:
     c_dt1, c_dt2 = st.columns(2)
     input_date = c_dt1.date_input("วันที่:", datetime.now())
     input_time = c_dt2.text_input("เวลา:", datetime.now().strftime("%H:%M"))
-    formatted_date = input_date.strftime(curr_info["date_fmt"])
     
-    # คำนวณธาตุ
     element = get_daily_element(input_date, selected_curr)
-
-    if 'basket' not in st.session_state: st.session_state.basket = []
 
     with st.form("add_item", clear_on_submit=True):
         item_name = st.text_input("ชื่อสินค้า")
@@ -181,29 +168,27 @@ with col_in:
 with col_pre:
     st.subheader("👀 Preview")
     if st.session_state.basket:
-        # สร้าง PDF เพื่อ Preview
-        pdf_base64, final_total = create_pdf(comp_info, st.session_state.basket, curr_info, formatted_date, input_time, element, selected_curr)
+        formatted_date = input_date.strftime(curr_info["date_fmt"])
+        pdf_base64, final_total = create_pdf(comp_info, st.session_state.basket, curr_info, formatted_date, input_time, element)
         
-        # แสดงผล Preview ในหน้าจอ
+        # แสดง Preview
         pdf_display = f'<iframe src="data:application/pdf;base64,{pdf_base64}" width="100%" height="550" type="application/pdf"></iframe>'
         st.markdown(pdf_display, unsafe_allow_html=True)
         
         if st.button("🎯 ออกใบเสร็จ & บันทึกข้อมูล", use_container_width=True):
-            # บันทึกลง History
             st.session_state.history.append({
                 "เวลา": f"{formatted_date} {input_time}",
                 "บริษัท": selected_comp_name,
                 "รายการ": ", ".join([x[0] for x in st.session_state.basket]),
-                "ยอดรวม": f"{curr_info['symbol']}{final_total:,.2f}"
+                "ยอดรวม": f"{curr_info['symbol']}{final_total:,.0f}"
             })
-            # สั่ง Print
             js = f"window.open('data:application/pdf;base64,{pdf_base64}')"
             st.components.v1.html(f"<script>{js}</script>", height=0)
-            st.success("✅ บันทึกข้อมูลเรียบร้อย!")
+            st.success("บันทึกสำเร็จ!")
     else:
         st.info("กรุณาเพิ่มสินค้าเพื่อดู Preview")
 
-# --- 8. ส่วนแสดงประวัติ (History Table) ---
+# --- 8. ประวัติ ---
 st.divider()
 st.subheader("📜 ประวัติการออกใบเสร็จ (History)")
 if st.session_state.history:
@@ -212,5 +197,3 @@ if st.session_state.history:
     if st.button("❌ ล้างประวัติทั้งหมด"):
         st.session_state.history = []
         st.rerun()
-else:
-    st.info("ยังไม่มีข้อมูลการออกใบเสร็จในเซสชั่นนี้")
