@@ -39,11 +39,11 @@ else:
 company_config = {
     "Bandai Namco": {
         "full_name": "BANDAI NAMCO ENTERTAINMENT CO., LTD.",
-        "logo_file": os.path.join(BASE_DIR, "logo_Bandai")
+        "logo_file": "logo_Bandai"
     },
     "Konami": {
         "full_name": "KONAMI DIGITAL ENTERTAINMENT CO., LTD.",
-        "logo_file": os.path.join(BASE_DIR, "logo_konami")
+        "logo_file": "logo_konami"
     }
 }
 
@@ -94,8 +94,9 @@ def create_pdf(comp_info, address_lines, receipt_date, basket, curr_info,
     logo_name = comp_info["logo_file"]
     logo_path = None
     for ext in ["", ".png", ".jpg"]:
-        if os.path.exists(logo_name + ext):
-            logo_path = logo_name + ext
+        full_path = os.path.join(BASE_DIR, logo_name + ext)
+        if os.path.exists(full_path):
+            logo_path = full_path
             break
 
     if logo_path:
@@ -295,8 +296,9 @@ with col_pre:
         # Logo
         logo_to_show = None
         for ext in ["", ".png", ".jpg"]:
-            if os.path.exists(comp_info["logo_file"] + ext):
-                logo_to_show = comp_info["logo_file"] + ext
+            full_path = os.path.join(BASE_DIR, comp_info["logo_file"] + ext)
+            if os.path.exists(full_path):
+                logo_to_show = full_path
                 break
 
         if logo_to_show:
