@@ -72,7 +72,7 @@ def create_pdf(comp_info, address_lines, receipt_date, basket, curr_info,
     disc_label = curr_info["disc_text"]
     thanks_msg = curr_info["thanks"]
 
-    width = 80 * mm
+    width = 58 * mm
     extra = 60 + (len([l for l in address_lines if l.strip()]) * 6)
     extra += 10 if member_pct > 0 else 0
     extra += 10 if rakuten_pts > 0 else 0
@@ -93,7 +93,7 @@ def create_pdf(comp_info, address_lines, receipt_date, basket, curr_info,
         try:
             img = ImageReader(logo_path)
             img_w, img_h = img.getSize()
-            display_w = 42 * mm
+            display_w = 30 * mm
             display_h = (display_w / img_w) * img_h
             c.drawImage(logo_path, (width - display_w) / 2, curr_y - display_h,
                         width=display_w, height=display_h, mask='auto')
@@ -104,7 +104,7 @@ def create_pdf(comp_info, address_lines, receipt_date, basket, curr_info,
         curr_y -= 15 * mm
 
     # ชื่อบริษัท
-    c.setFont(FONT_NAME, 11)
+    c.setFont(FONT_NAME, 8)
     c.drawCentredString(width / 2, curr_y, comp_info["full_name"])
     curr_y -= 7 * mm
 
@@ -126,7 +126,7 @@ def create_pdf(comp_info, address_lines, receipt_date, basket, curr_info,
     c.setFont(FONT_NAME, 8)
     c.drawCentredString(width / 2, curr_y, date_str)
     curr_y -= 4 * mm
-    c.line(5 * mm, curr_y, width - 5 * mm, curr_y)
+    c.line(3 * mm, curr_y, width - 3 * mm, curr_y)
 
     # รายการสินค้า
     curr_y -= 10 * mm
@@ -136,25 +136,25 @@ def create_pdf(comp_info, address_lines, receipt_date, basket, curr_info,
         line_total = subtotal - discount
         subtotal_items += line_total
 
-        c.setFont(FONT_NAME, 10)
-        lines = simpleSplit(name, FONT_NAME, 10, 65 * mm)
+        c.setFont(FONT_NAME, 9)
+        lines = simpleSplit(name, FONT_NAME, 9, 45 * mm)
         for line in lines:
-            c.drawString(7 * mm, curr_y, line)
+            c.drawString(5 * mm, curr_y, line)
             curr_y -= 5 * mm
 
         c.setFont(FONT_NAME, 9)
-        c.drawString(10 * mm, curr_y, f"{qty} x {symbol}{price:,.2f}")
-        c.drawRightString(width - 7 * mm, curr_y, f"{symbol}{subtotal:,.2f}")
+        c.drawString(5 * mm, curr_y, f"{qty} x {symbol}{price:,.2f}")
+        c.drawRightString(width - 3 * mm, curr_y, f"{symbol}{subtotal:,.2f}")
 
         if discount > 0:
             curr_y -= 4 * mm
             c.setFont(FONT_NAME, 8)
-            c.drawString(12 * mm, curr_y, f"({disc_label})")
-            c.drawRightString(width - 7 * mm, curr_y, f"-{symbol}{discount:,.2f}")
+            c.drawString(8 * mm, curr_y, f"({disc_label})")
+            c.drawRightString(width - 3 * mm, curr_y, f"-{symbol}{discount:,.2f}")
         curr_y -= 10 * mm
 
     # เส้นคั่น + Subtotal
-    c.line(5 * mm, curr_y, width - 5 * mm, curr_y)
+    c.line(3 * mm, curr_y, width - 3 * mm, curr_y)
     curr_y -= 8 * mm
 
     grand_total = subtotal_items
@@ -165,26 +165,26 @@ def create_pdf(comp_info, address_lines, receipt_date, basket, curr_info,
         member_disc_amt = subtotal_items * (member_pct / 100)
         grand_total -= member_disc_amt
         c.setFont(FONT_NAME, 9)
-        c.drawString(7 * mm, curr_y, f"会員割引 {member_pct}% OFF")
-        c.drawRightString(width - 7 * mm, curr_y, f"-{symbol}{member_disc_amt:,.2f}")
+        c.drawString(5 * mm, curr_y, f"会員割引 {member_pct}% OFF")
+        c.drawRightString(width - 3 * mm, curr_y, f"-{symbol}{member_disc_amt:,.2f}")
         curr_y -= 7 * mm
 
     # ส่วนลด Rakuten Points
     if rakuten_pts > 0:
         grand_total -= rakuten_pts
         c.setFont(FONT_NAME, 9)
-        c.drawString(7 * mm, curr_y, f"楽天ポイント利用 ({rakuten_pts:,} pt)")
-        c.drawRightString(width - 7 * mm, curr_y, f"-{symbol}{rakuten_pts:,.2f}")
+        c.drawString(5 * mm, curr_y, f"楽天ポイント利用 ({rakuten_pts:,} pt)")
+        c.drawRightString(width - 3 * mm, curr_y, f"-{symbol}{rakuten_pts:,.2f}")
         curr_y -= 7 * mm
 
     if member_pct > 0 or rakuten_pts > 0:
-        c.line(5 * mm, curr_y, width - 5 * mm, curr_y)
+        c.line(3 * mm, curr_y, width - 3 * mm, curr_y)
         curr_y -= 8 * mm
 
     # ยอดรวม
-    c.setFont(FONT_NAME, 14)
-    c.drawString(7 * mm, curr_y, "合計 TOTAL")
-    c.drawRightString(width - 7 * mm, curr_y, f"{symbol}{grand_total:,.2f}")
+    c.setFont(FONT_NAME, 12)
+    c.drawString(5 * mm, curr_y, "合計 TOTAL")
+    c.drawRightString(width - 3 * mm, curr_y, f"{symbol}{grand_total:,.2f}")
     curr_y -= 15 * mm
 
     c.setFont(FONT_NAME, 10)
