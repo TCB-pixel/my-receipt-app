@@ -46,6 +46,10 @@ company_config = {
     "Konami": {
         "full_name": "KONAMI DIGITAL ENTERTAINMENT CO., LTD.",
         "logo_file": "logo_konami"
+    },
+    "トレカル": {
+        "full_name": "トレカル",
+        "logo_file": "logo_torecal"
     }
 }
 
